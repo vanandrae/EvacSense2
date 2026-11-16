@@ -35,7 +35,7 @@ export default function AccountRecoveryPage({ navigate }) {
 
   return (
     <div className="container" style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-      <div className="glass-panel" style={{
+      <div className="glass-panel auth-card" style={{
         width: '100%',
         maxWidth: '460px',
         padding: '2.5rem',

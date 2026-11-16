@@ -11,6 +11,8 @@ export default function Dashboard({ user, token, onLogout }) {
   
   // Module 2 states (Drills & Occupancy)
   const [activeDrill, setActiveDrill] = useState(null);
+  const [hasReceivedDrillStatus, setHasReceivedDrillStatus] = useState(false);
+  const [connectionStatus, setConnectionStatus] = useState('connecting');
   const [roomsOccupancy, setRoomsOccupancy] = useState([]);
   const [unverifiedList, setUnverifiedList] = useState([]);
   const [totalParticipants, setTotalParticipants] = useState(0);
@@ -262,6 +264,7 @@ export default function Dashboard({ user, token, onLogout }) {
       const data = await response.json();
       if (response.ok && data.status === 'success') {
         setActiveDrill(data.activeDrill);
+        setHasReceivedDrillStatus(true);
         setRoomsOccupancy(data.rooms || []);
         setUnverifiedList(data.unverifiedList || []);
         setTotalParticipants(data.totalParticipants || 0);
@@ -363,6 +366,9 @@ export default function Dashboard({ user, token, onLogout }) {
     
     // Connect all authenticated roles (including Student) to real-time events stream
     const sseSource = new EventSource(`${API_BASE_URL}/api/presence/realtime`);
+    sseSource.onopen = () => {
+      setConnectionStatus('connected');
+    };
 
     if (user.role === 'System Admin' || user.role === 'Drill Coordinator' || user.role === 'Teacher') {
       fetchGraph();
@@ -370,6 +376,7 @@ export default function Dashboard({ user, token, onLogout }) {
     }
 
     sseSource.onmessage = (event) => {
+      setConnectionStatus('connected');
       try {
         const data = JSON.parse(event.data);
         
@@ -388,6 +395,7 @@ export default function Dashboard({ user, token, onLogout }) {
         }
         
         setActiveDrill(data.activeDrill);
+        setHasReceivedDrillStatus(true);
         setRoomsOccupancy(data.rooms || []);
         setUnverifiedList(data.unverifiedList || []);
         setTotalParticipants(data.totalParticipants || 0);
@@ -408,6 +416,7 @@ export default function Dashboard({ user, token, onLogout }) {
     };
 
     sseSource.onerror = (err) => {
+      setConnectionStatus('reconnecting');
       console.warn('[SSE CONNECTION WARNING] Reconnecting real-time stream...');
     };
 
@@ -588,30 +597,60 @@ export default function Dashboard({ user, token, onLogout }) {
     }
   };
 
+  const connectionLabel = {
+    connecting: 'Connecting to live updates…',
+    connected: 'Live updates connected',
+    reconnecting: 'Connection lost — retrying'
+  }[connectionStatus];
+  const drillStatusLabel = !hasReceivedDrillStatus
+    ? 'Waiting for drill status…'
+    : activeDrill
+      ? `${connectionStatus === 'connected' ? 'Active drill' : 'Last reported drill'}: ${activeDrill.name}`
+      : connectionStatus === 'connected'
+        ? 'No active drill reported'
+        : 'Last reported: no active drill';
+  const drillStatusClass = !hasReceivedDrillStatus
+    ? 'status-pill--connecting'
+    : activeDrill
+      ? 'status-pill--active'
+      : 'status-pill--idle';
+
   return (
-    <div style={{ minHeight: '100vh', padding: '3rem 2rem', position: 'relative' }}>
+    <div className="dashboard-page">
       
       {/* Top Banner Navigation */}
-      <div style={{
-        display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        marginBottom: '2.5rem',
-        animation: 'fadeIn 0.4s ease-out'
-      }}>
-        <div>
+      <header className="dashboard-header" style={{ animation: 'fadeIn 0.4s ease-out' }}>
+        <div className="dashboard-brand">
           <h1 className="brand-title" style={{ textAlign: 'left', fontSize: '2rem' }}>EvacSense Suite</h1>
           <p className="brand-subtitle" style={{ textAlign: 'left' }}>Safety Administration Console</p>
         </div>
-        
-        <button 
-          onClick={handleLogoutClick}
-          className="btn btn-secondary" 
-          style={{ width: 'auto', padding: '0.6rem 1.2rem', fontSize: '0.875rem' }}
-        >
-          Logout Secure Session
-        </button>
-      </div>
+        <div className="dashboard-header-actions">
+          <div className="dashboard-status-group">
+            <div
+              className={`status-pill status-pill--${connectionStatus}`}
+              role="status"
+              aria-live="polite"
+            >
+              <span className="status-pill__dot" aria-hidden="true" />
+              {connectionLabel}
+            </div>
+            <div
+              className={`status-pill ${drillStatusClass}`}
+              role="status"
+              aria-live="polite"
+            >
+              <span className="status-pill__dot" aria-hidden="true" />
+              {drillStatusLabel}
+            </div>
+          </div>
+          <button
+            onClick={handleLogoutClick}
+            className="btn btn-secondary dashboard-logout"
+          >
+            Logout Secure Session
+          </button>
+        </div>
+      </header>
 
       {/* Admin Actions Alert Banner */}
       {(actionMessage || actionError || rejectingId) && (
@@ -658,12 +697,14 @@ export default function Dashboard({ user, token, onLogout }) {
       )}
 
       {/* Main Grid Section */}
-      <div style={{
-        display: 'grid',
-        gridTemplateColumns: (user.role === 'System Admin' || user.role === 'Drill Coordinator') ? '1fr' : '1fr 2fr',
-        gap: '2.5rem',
-        alignItems: 'start'
-      }}>
+      <div
+        className={`dashboard-grid ${
+          user.role === 'System Admin' || user.role === 'Drill Coordinator'
+            ? 'dashboard-grid--single'
+            : 'dashboard-grid--profile'
+        }`}
+        style={{ alignItems: 'start' }}
+      >
         
         {/* Left Column: User Profile Card (Standard users) */}
         {user.role !== 'System Admin' && user.role !== 'Drill Coordinator' && (
@@ -862,13 +903,7 @@ export default function Dashboard({ user, token, onLogout }) {
             )}
 
             {/* Tabs Navigation */}
-            <div style={{
-              display: 'flex',
-              gap: '1rem',
-              borderBottom: '1px solid rgba(255, 255, 255, 0.08)',
-              paddingBottom: '1.25rem',
-              marginBottom: '0.5rem'
-            }}>
+            <div className="dashboard-tabs">
               <button
                 onClick={() => setActiveTab('occupancy')}
                 className={`btn ${activeTab === 'occupancy' ? 'btn-primary' : 'btn-secondary'}`}
@@ -1271,7 +1306,7 @@ export default function Dashboard({ user, token, onLogout }) {
             {activeTab === 'navigation' && (
               /* Evacuation Path Designer Tab Component */
               <div className="glass-panel" style={{ padding: '2.5rem', animation: 'fadeIn 0.5s ease-out' }}>
-                <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '2.5rem' }}>
+                <div className="navigation-designer-grid">
                   {/* Visual Map Canvas */}
                   <div>
                     <h4 style={{ fontFamily: 'Outfit', color: '#ffffff', fontSize: '1.25rem', marginBottom: '0.25rem', textAlign: 'left' }}>
@@ -1282,7 +1317,7 @@ export default function Dashboard({ user, token, onLogout }) {
                     </p>
 
                     {/* Floor Selector Tabs */}
-                    <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1.25rem' }}>
+                    <div className="floor-selector">
                       {[1, 2, 3, 4].map(f => (
                         <button
                           key={f}
@@ -1302,17 +1337,22 @@ export default function Dashboard({ user, token, onLogout }) {
                     </p>
 
                     {/* SVG Canvas Map */}
-                    <div style={{
+                    <div className="route-map-canvas" style={{
                       background: 'rgba(15, 23, 42, 0.7)',
                       borderRadius: '16px',
                       border: '1px solid rgba(255,255,255,0.1)',
-                      padding: '1.5rem',
                       display: 'flex',
                       justifyContent: 'center',
                       position: 'relative',
                       boxShadow: 'inset 0 0 20px rgba(0,0,0,0.6)'
                     }}>
-                      <svg width="660" height="420" style={{ overflow: 'visible' }}>
+                      <svg
+                        className="route-map-svg"
+                        viewBox="0 0 660 420"
+                        preserveAspectRatio="xMidYMid meet"
+                        role="img"
+                        aria-label={`NGE Building evacuation map, floor ${selectedFloor}`}
+                      >
                         {/* Floor title watermark */}
                         <text x="330" y="415" textAnchor="middle" fill="rgba(255,255,255,0.08)" style={{ fontSize: '0.65rem', fontFamily: 'monospace', letterSpacing: '0.1em' }}>
                           NGE BUILDING • FLOOR {selectedFloor}
@@ -1578,7 +1618,7 @@ export default function Dashboard({ user, token, onLogout }) {
             {activeTab === 'reports' && (
               /* Historical Drill Safety Compliance Reports Hub component */
               <div className="glass-panel" style={{ padding: '2.5rem', animation: 'fadeIn 0.5s ease-out', textAlign: 'left' }}>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: '2.5rem' }}>
+                <div className="reports-grid">
                   
                   {/* Left History List Panel */}
                   <div>

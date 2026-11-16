@@ -6,18 +6,18 @@
     android:background="#020617"
     android:padding="16dp">
 
-    <!-- Active Emergency Evacuation Banner -->
     <TextView
         android:id="@+id/statusBanner"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:background="#EF4444"
-        android:textColor="#FFFFFF"
+        android:accessibilityLiveRegion="polite"
+        android:background="#334155"
+        android:textColor="#F8FAFC"
         android:textStyle="bold"
-        android:textSize="18sp"
+        android:textSize="16sp"
         android:gravity="center"
         android:padding="12dp"
-        android:text="EVACUATION ROUTING ACTIVE"
+        android:text="Finding a safe route..."
         android:layout_marginBottom="12dp" />
 
     <!-- Offline Network Suspend Banner (hidden by default) -->
@@ -25,6 +25,7 @@
         android:id="@+id/offlineWarningBanner"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
+        android:accessibilityLiveRegion="polite"
         android:background="#F59E0B"
         android:textColor="#020617"
         android:textStyle="bold"
@@ -51,7 +52,7 @@
             android:textColor="#FFFFFF"
             android:textSize="16sp"
             android:textStyle="bold"
-            android:text="Origin: ROOM-4-OR ➜ Exit: EXIT-CIT-FIELD" />
+            android:text="Waiting for route details..." />
 
         <TextView
             android:id="@+id/routeMetricsText"
@@ -60,7 +61,7 @@
             android:textColor="#94A3B8"
             android:textSize="13sp"
             android:layout_marginTop="4dp"
-            android:text="Est. Distance: 41.0 meters | Floor: 4" />
+            android:text="Requesting directions from the server..." />
 
     </LinearLayout>
 
@@ -95,7 +96,7 @@
                 android:textColor="#FFFFFF"
                 android:textSize="15sp"
                 android:padding="8dp"
-                android:text="Retrieving shortest evacuation routing..." />
+                android:text="Requesting verified evacuation directions..." />
 
         </LinearLayout>
     </ScrollView>
@@ -105,7 +106,8 @@
         android:id="@+id/distressButton"
         android:layout_width="match_parent"
         android:layout_height="54dp"
-        android:text="TRIGGER DISTRESS ALERT"
+        android:text="SEND DISTRESS ALERT"
+        android:contentDescription="Send an emergency distress alert to safety marshals"
         android:backgroundTint="#B91C1C"
         android:textColor="#FFFFFF"
         android:textStyle="bold"

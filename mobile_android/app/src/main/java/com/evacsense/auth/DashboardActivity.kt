@@ -34,6 +34,8 @@ class DashboardActivity : AppCompatActivity() {
     private val handler = android.os.Handler(android.os.Looper.getMainLooper())
     private var pollRunnable: Runnable? = null
     private lateinit var authService: AuthService
+    private lateinit var serverStatusText: TextView
+    private lateinit var drillStatusText: TextView
     private var currentDrillId: Int? = null
     private val LOCATION_PERMISSION_REQUEST_CODE = 888
 
@@ -88,6 +90,8 @@ class DashboardActivity : AppCompatActivity() {
 
         // Find views
         val titleText: TextView = findViewById(R.id.titleText)
+        serverStatusText = findViewById(R.id.serverStatusText)
+        drillStatusText = findViewById(R.id.drillStatusText)
         val detailsText: TextView = findViewById(R.id.detailsText)
         val actionText: TextView = findViewById(R.id.actionText)
         val logoutButton: Button = findViewById(R.id.logoutButton)
@@ -123,9 +127,10 @@ class DashboardActivity : AppCompatActivity() {
         // Initialize dynamic API Service
         authService = ApiClient.getService(this)
 
-        // For Student role, automatically activate active drill polling detector
+        startDrillPolling(role == "Student")
+
+        // For students, automatically activate drill-response actions.
         if (role == "Student") {
-            startDrillPolling()
             fetchPhotoStatusFromBackend()
         }
 
@@ -217,28 +222,42 @@ class DashboardActivity : AppCompatActivity() {
         })
     }
 
-    private fun startDrillPolling() {
+    private fun startDrillPolling(isStudent: Boolean) {
         pollRunnable = object : Runnable {
             override fun run() {
                 authService.getActiveDrill().enqueue(object : Callback<ActiveDrillResponse> {
                     override fun onResponse(call: Call<ActiveDrillResponse>, response: Response<ActiveDrillResponse>) {
                         val body = response.body()
                         if (response.isSuccessful && body?.status == "success") {
+                            serverStatusText.text = "Backend connected"
+                            serverStatusText.setTextColor(android.graphics.Color.parseColor("#34D399"))
                             val activeDrill = body.activeDrill
                             if (activeDrill != null) {
-                                // Dynamic drill trigger!
-                                if (currentDrillId != activeDrill.id) {
-                                    currentDrillId = activeDrill.id
+                                drillStatusText.text = "ACTIVE DRILL: ${activeDrill.name}"
+                                drillStatusText.setTextColor(android.graphics.Color.parseColor("#FCA5A5"))
+                                if (isStudent && currentDrillId != activeDrill.id) {
                                     triggerEmergencyResponse(activeDrill.name)
                                 }
+                                currentDrillId = activeDrill.id
                             } else {
+                                drillStatusText.text = "No active drill reported."
+                                drillStatusText.setTextColor(android.graphics.Color.parseColor("#CBD5E1"))
                                 currentDrillId = null
                             }
+                        } else {
+                            serverStatusText.text = "Backend connected"
+                            serverStatusText.setTextColor(android.graphics.Color.parseColor("#34D399"))
+                            drillStatusText.text = "Drill status unavailable (HTTP ${response.code()})."
+                            drillStatusText.setTextColor(android.graphics.Color.parseColor("#FBBF24"))
                         }
                         handler.postDelayed(pollRunnable!!, 3000)
                     }
 
                     override fun onFailure(call: Call<ActiveDrillResponse>, t: Throwable) {
+                        serverStatusText.text = "Can't reach the backend — retrying"
+                        serverStatusText.setTextColor(android.graphics.Color.parseColor("#F87171"))
+                        drillStatusText.text = "Drill status is currently unknown."
+                        drillStatusText.setTextColor(android.graphics.Color.parseColor("#FBBF24"))
                         handler.postDelayed(pollRunnable!!, 3000)
                     }
                 })
